@@ -13,8 +13,19 @@ rp_module_id="steamcontroller"
 rp_module_desc="User-mode driver for Steam Controller"
 rp_module_help="Steam Controller Driver from https://github.com/C0rn3j/sc-controller"
 rp_module_licence="GPL2 https://raw.githubusercontent.com/C0rn3j/sc-controller/python3/LICENSE"
-rp_module_repo="git https://github.com/C0rn3j/sc-controller.git v0.5.4"
+rp_module_repo="git https://github.com/C0rn3j/sc-controller.git :_get_branch_steamcontroller"
 rp_module_section="driver"
+
+function _get_branch_steamcontroller() {
+    # newer releases need Python 3.8 (v0.4.8.16+) or Python 3.10 (v0.5.0+)
+    local branch="v0.5.4"
+    if [[ "$__os_debian_ver" -lt 11 ]]; then
+        branch="v0.4.8.15"
+    elif [[ "$__os_debian_ver" -lt 12 ]]; then
+        branch="v0.4.9.4"
+    fi
+    echo "$branch"
+}
 
 function _update_hook_steamcontroller() {
     # remove the start command from the previous scriptmodule version
@@ -23,7 +34,7 @@ function _update_hook_steamcontroller() {
     fi
 }
 function depends_steamcontroller() {
-    getDepends python3-virtualenv python3-dev python3-setuptools
+    getDepends python3-venv python3-dev python3-setuptools zlib1g-dev libxfixes3
 }
 
 function sources_steamcontroller() {
@@ -32,11 +43,21 @@ function sources_steamcontroller() {
 
 function install_steamcontroller() {
     # build the driver in a virtualenv created in $md_inst
-    virtualenv -p python3 "$md_inst"
+    if ! python3 -m venv "$md_inst"; then
+        md_ret_errors+=("Failed to create the virtualenv in $md_inst")
+        return 1
+    fi
     source "$md_inst/bin/activate"
-    pip3 install libusb1 evdev ioctl_opt
-    pip3 install "sccontroller @ file://$md_build"
+    # pip 18.1 from Buster cannot install 'name @ url' requirements
+    pip3 install --upgrade pip && \
+        pip3 install libusb1 evdev ioctl_opt && \
+        pip3 install "sccontroller @ file://$md_build"
+    local ret=$?
     deactivate
+    if [[ "$ret" -ne 0 ]]; then
+        md_ret_errors+=("Failed to install the Steam Controller driver")
+        return 1
+    fi
 
     # copy the default controller profiles
     md_ret_files=("default_profiles")
