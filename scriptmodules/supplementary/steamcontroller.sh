@@ -43,10 +43,7 @@ function sources_steamcontroller() {
 
 function install_steamcontroller() {
     # build the driver in a virtualenv created in $md_inst
-    if ! python3 -m venv "$md_inst"; then
-        md_ret_errors+=("Failed to create the virtualenv in $md_inst")
-        return 1
-    fi
+    python3 -m venv "$md_inst" || return 1
     source "$md_inst/bin/activate"
     # pip 18.1 from Buster cannot install 'name @ url' requirements
     pip3 install --upgrade pip && \
@@ -54,10 +51,7 @@ function install_steamcontroller() {
         pip3 install "sccontroller @ file://$md_build"
     local ret=$?
     deactivate
-    if [[ "$ret" -ne 0 ]]; then
-        md_ret_errors+=("Failed to install the Steam Controller driver")
-        return 1
-    fi
+    [[ "$ret" -ne 0 ]] && return 1
 
     # copy the default controller profiles
     md_ret_files=("default_profiles")
